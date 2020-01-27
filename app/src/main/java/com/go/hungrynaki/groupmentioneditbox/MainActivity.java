@@ -12,11 +12,15 @@ import android.view.View;
 import android.widget.EditText;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     private RecyclerView recyclerView;
     private EditText editText;
+    private String [] names = {"Mimo", "Azad", "Monir", "Asad", "Atik"};
+    private ItemArrayAdapter itemArrayAdapter;
+    private ArrayList<Item> itemList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,7 +43,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void afterTextChanged(Editable s) {
-
+                filterMessageForUser();
             }
         });
     }
@@ -49,8 +53,128 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch (v.getId()) {
             case R.id.row_item:
                 String name = (String) v.getTag();
-                executeMessage(name);
+                executeNameAfterTap(name);
                 break;
+        }
+    }
+
+    private void filterMessageForUser() {
+        String message = editText.getText().toString();
+        if (message.contains(" @")) {
+            int position = message.indexOf(" @");
+            int updatePos = position + 2;
+            nameRetrieveFromFilterMessage(message, updatePos);
+        } else {
+            if (message.length() > 0 && message.charAt(0) == '@') {
+                int position = message.indexOf("@");
+                int updatePos = position + 1;
+                nameRetrieveFromFilterMessage(message, updatePos);
+            } else {
+                recyclerView.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    private boolean isUserPopupEnable() {
+        String message = editText.getText().toString();
+        return (message.length() == 1 && message.equals("@")) || message.contains(" @");
+    }
+
+
+
+    private void nameRetrieveFromFilterMessage(String message, int updatePos) {
+        int cursorPosition = editText.getSelectionStart();
+
+        if (updatePos == cursorPosition) {
+            getItems("");
+        } else {
+            String filterName = message.substring(updatePos, cursorPosition);
+            getItems(filterName);
+        }
+
+        if (itemList.size() > 0) {
+            recyclerView.setVisibility(View.VISIBLE);
+            itemArrayAdapter.setNames(itemList);
+        } else {
+            recyclerView.setVisibility(View.GONE);
+        }
+    }
+
+    private void executeNameAfterTap(String name) {
+
+        String message = editText.getText().toString();
+        if (message.contains(" @") || (message.length() > 0 && message.charAt(0) == '@')) {
+            int position;
+            int updatePos;
+            if ((message.charAt(0) == '@')) {
+                position = message.indexOf("@");
+                updatePos = position;
+            } else {
+                position = message.indexOf(" @");
+                updatePos = position + 1;
+            }
+            int cursorPosition = editText.getSelectionStart();
+
+            String replacedMessage = message.substring(updatePos, cursorPosition);
+
+            String nameWithSpace = (name + " ");
+            String finalText = message.replace(replacedMessage, nameWithSpace);
+
+            cursorPosition = updatePos + nameWithSpace.length();
+
+            if (finalText.length() > cursorPosition) {
+                char spaceChar = finalText.charAt(cursorPosition);
+
+                if (spaceChar == ' ') {
+                    finalText = message.replace(replacedMessage, name);
+                    cursorPosition = updatePos + name.length() + 1;
+                }
+            }
+
+            editText.setText(finalText);
+            editText.setSelection(cursorPosition);
+        }
+    }
+
+    private void initRecyclerView() {
+
+        itemArrayAdapter = new ItemArrayAdapter(R.layout.item_list, this);
+        recyclerView = findViewById(R.id.item_list);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setItemAnimator(new DefaultItemAnimator());
+        recyclerView.setAdapter(itemArrayAdapter);
+
+//        itemArrayAdapter.setNames(getItems(""));
+    }
+
+    private List<Item> getItems(String filterName) {
+        itemList.clear();
+        if (TextUtils.isEmpty(filterName)) {
+
+            for (String name : names) {
+                itemList.add(new Item(name));
+            }
+        } else {
+            filterName = filterName.toLowerCase();
+            for (String name : names) {
+                if (name.toLowerCase().startsWith(filterName)) {
+                    itemList.add(new Item(name));
+                }
+            }
+        }
+        return itemList;
+    }
+
+    private void setOperationText(String name) {
+        String editMessage = editText.getText().toString();
+
+        int cursorPosition = editText.getSelectionStart();
+
+        String[] spaceTexts = editMessage.split(" ");
+        for (String texts : spaceTexts) {
+            if (texts.startsWith("@")) {
+
+            }
         }
     }
 
@@ -67,66 +191,5 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         }
         return true;
-    }
-
-    String prevMessage;
-
-    private void executeMessage(String name) {
-
-        String message = editText.getText().toString();
-        if (message.contains(" @")) {
-            int position = message.indexOf(" @");
-            int updatePos = position + 1;
-            int cursorPosition = editText.getSelectionStart();
-
-            String replacedMessage = message.substring(updatePos, cursorPosition);
-
-            String nameWithSpace = (name + " ");
-            String finalText = message.replace(replacedMessage, nameWithSpace);
-
-            cursorPosition = updatePos + nameWithSpace.length();
-
-            char spaceChar = finalText.charAt(cursorPosition);
-
-            if (spaceChar == ' ') {
-                finalText = message.replace(replacedMessage, name);
-                cursorPosition = updatePos + name.length() + 1;
-            }
-
-            editText.setText(finalText);
-            editText.setSelection(cursorPosition);
-        }
-
-
-    }
-
-    private void setOperationText(String name) {
-        String editMessage = editText.getText().toString();
-
-        int cursorPosition = editText.getSelectionStart();
-
-        String[] spaceTexts = editMessage.split(" ");
-        for (String texts : spaceTexts) {
-            if (texts.startsWith("@")) {
-
-            }
-        }
-    }
-
-    private void initRecyclerView() {
-
-        ArrayList<Item> itemList = new ArrayList<>();
-
-        String [] names = {"Mimo", "Tashfin", "Mukit", "Farhan", "Rashedul"};
-
-        for (String name : names) {
-            itemList.add(new Item(name));
-        }
-
-        ItemArrayAdapter itemArrayAdapter = new ItemArrayAdapter(R.layout.item_list, itemList, this);
-        recyclerView = (RecyclerView) findViewById(R.id.item_list);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setItemAnimator(new DefaultItemAnimator());
-        recyclerView.setAdapter(itemArrayAdapter);
     }
 }

@@ -8,18 +8,18 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.List;
 
 
 public class ItemArrayAdapter extends RecyclerView.Adapter<ItemArrayAdapter.ViewHolder> {
 
     //All methods in this adapter are required for a bare minimum recyclerview adapter
     private int listItemLayout;
-    private ArrayList<Item> itemList;
+    private ArrayList<Item> itemList = new ArrayList<>();
     private View.OnClickListener clickListener;
     // Constructor of the class
-    public ItemArrayAdapter(int layoutId, ArrayList<Item> itemList, View.OnClickListener clickListener) {
+    public ItemArrayAdapter(int layoutId, View.OnClickListener clickListener) {
         listItemLayout = layoutId;
-        this.itemList = itemList;
         this.clickListener = clickListener;
     }
 
@@ -29,6 +29,11 @@ public class ItemArrayAdapter extends RecyclerView.Adapter<ItemArrayAdapter.View
         return itemList == null ? 0 : itemList.size();
     }
 
+    public void setNames(List<Item> items) {
+        itemList.clear();
+        itemList.addAll(items);
+        notifyDataSetChanged();
+    }
 
     // specify the row layout file and click for each row
     @Override

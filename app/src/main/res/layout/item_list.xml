@@ -6,7 +6,9 @@
 
     <TextView
         android:id="@+id/row_item"
+        android:background="@android:color/darker_gray"
         android:layout_width="match_parent"
+        android:textColor="@android:color/black"
         android:layout_height="50dp"
         android:gravity="center" />
 </LinearLayout>
