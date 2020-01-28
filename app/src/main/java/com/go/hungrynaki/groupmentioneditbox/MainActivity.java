@@ -1,13 +1,17 @@
 package com.go.hungrynaki.groupmentioneditbox;
 
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
+import android.text.Spannable;
+import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.text.style.StyleSpan;
 import android.view.View;
 import android.widget.EditText;
 
@@ -21,6 +25,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private String [] names = {"Mimo", "Azad", "Monir", "Asad", "Atik"};
     private ItemArrayAdapter itemArrayAdapter;
     private ArrayList<Item> itemList = new ArrayList<>();
+
+    private ArrayList<SelectedItem> selectedItems = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,13 +81,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private boolean isUserPopupEnable() {
-        String message = editText.getText().toString();
-        return (message.length() == 1 && message.equals("@")) || message.contains(" @");
-    }
-
-
-
     private void nameRetrieveFromFilterMessage(String message, int updatePos) {
         int cursorPosition = editText.getSelectionStart();
 
@@ -131,9 +130,39 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
             }
 
-            editText.setText(finalText);
+            editText.setText(getNameWithFinalText(finalText, updatePos, cursorPosition, name));
             editText.setSelection(cursorPosition);
         }
+    }
+
+    // Mimo - 3, 7
+    // Hi @Mimo Tumi kemon aso. @
+
+    //1. Popup open houar shorto(@ or " @" ase ki na and @ or " @" thakle cursor er position theke koto shamne
+    // @ ase tar shathe kono name mile jay ki na ta match kora)
+
+    private SpannableString getNameWithFinalText(String fullText, int start, int end, String name) {
+
+        for (int i = 0; i < selectedItems.size(); i++) {
+            SelectedItem selectedItem = selectedItems.get(i);
+            if (start <= selectedItem.getStart()) {
+                int newNameLength = end - start;
+                selectedItem.setStart((selectedItem.getStart() + newNameLength))
+                        .setEnd((selectedItem.getEnd() + newNameLength));
+            }
+        }
+
+        SelectedItem selectedItem = new SelectedItem().setName(name).setStart(start).setEnd(end);
+        selectedItems.add(selectedItem);
+
+        SpannableString txtSpannable= new SpannableString(fullText);
+
+        for (SelectedItem retrieveItems : selectedItems) {
+            StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
+            txtSpannable.setSpan(boldSpan, retrieveItems.getStart(), retrieveItems.getEnd(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+
+        return txtSpannable;
     }
 
     private void initRecyclerView() {
