@@ -1,7 +1,12 @@
 package com.go.hungrynaki.groupmentioneditbox;
 
+import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
@@ -9,11 +14,19 @@ import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
 import android.text.style.StyleSpan;
+import android.util.Log;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +38,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private String [] names = {"Mimo", "Azad", "Monir", "Asad", "Atik"};
     private ItemArrayAdapter itemArrayAdapter;
     private ArrayList<Item> itemList = new ArrayList<>();
+    private TextView messageTv;
 
     private ArrayList<SelectedItem> selectedItems = new ArrayList<>();
 
@@ -34,6 +48,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
 
         editText = findViewById(R.id.mention);
+        Button send = findViewById(R.id.send);
+        messageTv = findViewById(R.id.messagetv);
+        messageTv.setMovementMethod(LinkMovementMethod.getInstance());
+        messageTv.setHighlightColor(Color.TRANSPARENT);
+
         initRecyclerView();
 
         editText.addTextChangedListener(new TextWatcher() {
@@ -49,7 +68,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void afterTextChanged(Editable s) {
-                filterMessageForUser();
+                if (!isNameTapped) {
+                    atAction(editText.getText().toString());
+                }
+            }
+        });
+
+        send.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                hideKeyboard();
+                String finalMessage = editText.getText().toString();
+                messageTv.setText(boldWithClick(finalMessage));
+
+                editText.setText("");
             }
         });
     }
@@ -59,81 +91,151 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch (v.getId()) {
             case R.id.row_item:
                 String name = (String) v.getTag();
-                executeNameAfterTap(name);
+                nameAction(editText.getText().toString(), name);
                 break;
         }
     }
 
-    private void filterMessageForUser() {
-        String message = editText.getText().toString();
-        if (message.contains(" @")) {
-            int position = message.indexOf(" @");
-            int updatePos = position + 2;
-            nameRetrieveFromFilterMessage(message, updatePos);
-        } else {
-            if (message.length() > 0 && message.charAt(0) == '@') {
-                int position = message.indexOf("@");
-                int updatePos = position + 1;
-                nameRetrieveFromFilterMessage(message, updatePos);
-            } else {
-                recyclerView.setVisibility(View.GONE);
-            }
-        }
+    private void hideKeyboard() {
+        InputMethodManager inputManager = (InputMethodManager)
+                getSystemService(Context.INPUT_METHOD_SERVICE);
+
+        inputManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(),
+                InputMethodManager.HIDE_NOT_ALWAYS);
     }
 
-    private void nameRetrieveFromFilterMessage(String message, int updatePos) {
-        int cursorPosition = editText.getSelectionStart();
+    boolean isNameTapped = false;
 
-        if (updatePos == cursorPosition) {
-            getItems("");
-        } else {
-            String filterName = message.substring(updatePos, cursorPosition);
-            getItems(filterName);
+    private void nameAction(String message, String name) {
+        StringBuilder stringBuilder = new StringBuilder(message);
+        String nameWithSpace = (name + " ");
+        stringBuilder.replace(start, end, nameWithSpace);
+
+        int newCursorPosition = start + nameWithSpace.length();
+
+        String finalMessage = stringBuilder.toString();
+        isNameTapped = true;
+        editText.setText(boldAction(finalMessage));
+        editText.setSelection(newCursorPosition);
+        recyclerView.setVisibility(View.GONE);
+
+        (new Handler(Looper.getMainLooper())).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                isNameTapped = false;
+            }
+        }, 200);
+    }
+
+    private SpannableString boldAction(String message) {
+        SpannableString txtSpannable= new SpannableString(message);
+
+        int boldStart = -1;
+
+        for (int i = 0; i < message.length(); i++) {
+            if (message.charAt(i) == '@') {
+                boldStart = i;
+            } else if (message.charAt(i) == ' ') {
+                if (boldStart != -1) {
+                    String cutName = message.substring((boldStart + 1), i);
+                    if (nameContains(cutName)) {
+                        StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
+                        txtSpannable.setSpan(boldSpan, boldStart, i, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        boldStart = -1;
+                    } else {
+                        boldStart = -1;
+                    }
+                }
+            }
         }
 
-        if (itemList.size() > 0) {
-            recyclerView.setVisibility(View.VISIBLE);
-            itemArrayAdapter.setNames(itemList);
+        return txtSpannable;
+    }
+
+    private SpannableString boldWithClick(String message) {
+        SpannableString txtSpannable= new SpannableString(message);
+
+        int boldStart = -1;
+
+        for (int i = 0; i < message.length(); i++) {
+            if (message.charAt(i) == '@') {
+                boldStart = i;
+            } else if (message.charAt(i) == ' ') {
+                if (boldStart != -1) {
+                    final String cutName = message.substring((boldStart + 1), i);
+                    if (nameContains(cutName)) {
+                        StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
+
+                        ClickableSpan myClickableSpan = new ClickableSpan() {
+                            @Override
+                            public void onClick(@NonNull View widget) {
+                                Toast.makeText(MainActivity.this, cutName, Toast.LENGTH_SHORT).show();
+                                widget.invalidate();
+//
+                            }
+
+                            @Override
+                            public void updateDrawState(TextPaint ds) {
+                                super.updateDrawState(ds);
+                                ds.setUnderlineText(false);
+                                ds.setColor(getResources().getColor(R.color.colorAccent));
+
+                            }
+                        };
+                        txtSpannable.setSpan(myClickableSpan, boldStart, i, 0);
+                        txtSpannable.setSpan(boldSpan, boldStart, i, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                        boldStart = -1;
+                    } else {
+                        boldStart = -1;
+                    }
+                }
+            }
+        }
+
+        return txtSpannable;
+    }
+
+    private boolean nameContains(String cutName) {
+        for (String name : names) {
+            if (name.equals(cutName))
+                return true;
+        }
+        return false;
+    }
+
+    int start, end;
+
+    private void atAction(String message) {
+        int cursorPosition = getCursorPosition();
+
+        if (!TextUtils.isEmpty(message)) {
+            for (int i = 0; i < message.length(); i++) {
+                if (message.charAt(i) == '@') {
+                    int startPosition = i + 1;
+
+                    if (cursorPosition >= startPosition) {
+                        String mainChar = message.substring(startPosition, cursorPosition);
+
+                        getItems(mainChar);
+
+                        if (itemList.size() > 0) {
+                            start = startPosition;
+                            end = cursorPosition;
+
+                            recyclerView.setVisibility(View.VISIBLE);
+                            itemArrayAdapter.setNames(itemList);
+                        } else {
+                            recyclerView.setVisibility(View.GONE);
+                        }
+                    }
+                }
+            }
         } else {
             recyclerView.setVisibility(View.GONE);
         }
     }
 
-    private void executeNameAfterTap(String name) {
-
-        String message = editText.getText().toString();
-        if (message.contains(" @") || (message.length() > 0 && message.charAt(0) == '@')) {
-            int position;
-            int updatePos;
-            if ((message.charAt(0) == '@')) {
-                position = message.indexOf("@");
-                updatePos = position;
-            } else {
-                position = message.indexOf(" @");
-                updatePos = position + 1;
-            }
-            int cursorPosition = editText.getSelectionStart();
-
-            String replacedMessage = message.substring(updatePos, cursorPosition);
-
-            String nameWithSpace = (name + " ");
-            String finalText = message.replace(replacedMessage, nameWithSpace);
-
-            cursorPosition = updatePos + nameWithSpace.length();
-
-            if (finalText.length() > cursorPosition) {
-                char spaceChar = finalText.charAt(cursorPosition);
-
-                if (spaceChar == ' ') {
-                    finalText = message.replace(replacedMessage, name);
-                    cursorPosition = updatePos + name.length() + 1;
-                }
-            }
-
-            editText.setText(getNameWithFinalText(finalText, updatePos, cursorPosition, name));
-            editText.setSelection(cursorPosition);
-        }
-    }
 
     // Mimo - 3, 7
     // Hi @Mimo Tumi kemon aso. @
@@ -141,29 +243,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     //1. Popup open houar shorto(@ or " @" ase ki na and @ or " @" thakle cursor er position theke koto shamne
     // @ ase tar shathe kono name mile jay ki na ta match kora)
 
-    private SpannableString getNameWithFinalText(String fullText, int start, int end, String name) {
-
-        for (int i = 0; i < selectedItems.size(); i++) {
-            SelectedItem selectedItem = selectedItems.get(i);
-            if (start <= selectedItem.getStart()) {
-                int newNameLength = end - start;
-                selectedItem.setStart((selectedItem.getStart() + newNameLength))
-                        .setEnd((selectedItem.getEnd() + newNameLength));
-            }
-        }
-
-        SelectedItem selectedItem = new SelectedItem().setName(name).setStart(start).setEnd(end);
-        selectedItems.add(selectedItem);
-
-        SpannableString txtSpannable= new SpannableString(fullText);
-
-        for (SelectedItem retrieveItems : selectedItems) {
-            StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
-            txtSpannable.setSpan(boldSpan, retrieveItems.getStart(), retrieveItems.getEnd(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
-
-        return txtSpannable;
-    }
 
     private void initRecyclerView() {
 
@@ -176,7 +255,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //        itemArrayAdapter.setNames(getItems(""));
     }
 
-    private List<Item> getItems(String filterName) {
+    private void getItems(String filterName) {
         itemList.clear();
         if (TextUtils.isEmpty(filterName)) {
 
@@ -191,34 +270,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
             }
         }
-        return itemList;
     }
 
-    private void setOperationText(String name) {
-        String editMessage = editText.getText().toString();
-
-        int cursorPosition = editText.getSelectionStart();
-
-        String[] spaceTexts = editMessage.split(" ");
-        for (String texts : spaceTexts) {
-            if (texts.startsWith("@")) {
-
-            }
-        }
-    }
-
-    private boolean operation(String message) {
-        if (TextUtils.isEmpty(message))
-            return false;
-
-        if (message.contains("@")) {
-            String[] spaceChar = message.split(" ");
-            for (String name : spaceChar) {
-                if (name.contains("@") && name.startsWith("@")) {
-                    return true;
-                }
-            }
-        }
-        return true;
+    private int getCursorPosition() {
+        return editText.getSelectionStart();
     }
 }
